@@ -1,6 +1,6 @@
 [package]
 name = "mruby-compiler2-sys"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2024"
 authors = [
     "Uchio Kondo <udzura@udzura.jp>",
@@ -19,7 +19,7 @@ include = [
 ]
 
 [dependencies]
-libc = { version = "0.2.177", optional = true }
+libc = { version = "0.2.182", optional = true }
 
 [build-dependencies]
 bindgen = ">= 0"
