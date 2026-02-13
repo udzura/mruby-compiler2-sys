@@ -13,6 +13,13 @@ nsym(mrc_parser_state *p, const uint8_t *start, size_t length)
   return sym;
 }
 
+static int32_t
+node_lineno(mrc_ccontext *c, mrc_node *node)
+{
+  pm_location_t *loc = &((pm_node_t *)node)->location;
+  return pm_newline_list_line(&c->p->newline_list, loc->start, 1);
+}
+
 static mrc_bool
 true_always(mrc_node *tree)
 {
@@ -1165,8 +1172,7 @@ codegen(mrc_codegen_scope *s, mrc_node *tree, int val)
 
   int nt = nint(tree);
 
-  //TODO lineno
-  // s->lineno = tree->lineno;
+  s->lineno = node_lineno(s->c, tree);
 
   switch (nt) {
     case PM_PROGRAM_NODE: {
@@ -2786,6 +2792,39 @@ codegen(mrc_codegen_scope *s, mrc_node *tree, int val)
       }
       break;
     }
+    case PM_RESCUE_MODIFIER_NODE:
+    {
+      CAST(rescue_modifier);
+      int catch_entry, begin_pos, end_pos;
+      struct loopinfo *lp;
+
+      lp = loop_push(s, LOOP_BEGIN);
+      lp->pc0 = new_label(s);
+      catch_entry = catch_handler_new(s);
+      begin_pos = s->pc;
+
+      /* evaluate main expression */
+      codegen(s, cast->expression, val);
+      if (val) pop();
+
+      lp->type = LOOP_RESCUE;
+      end_pos = s->pc;
+      int noexc = genjmp_0(s, OP_JMP);
+      catch_handler_set(s, catch_entry, MRC_CATCH_RESCUE, begin_pos, end_pos, s->pc);
+
+      /* rescue expression */
+      int exc = cursp();
+      genop_1(s, OP_EXCEPT, exc);
+      push();
+      pop();
+      codegen(s, cast->rescue_expression, val);
+      if (val) pop();
+
+      dispatch(s, noexc);
+      if (val) push();
+      loop_pop(s, NOVAL);
+      break;
+    }
     case PM_BLOCK_ARGUMENT_NODE:
     {
       CAST(block_argument);
@@ -2892,6 +2931,17 @@ codegen(mrc_codegen_scope *s, mrc_node *tree, int val)
         assert(idx != 0);
         gen_move(s, cursp(), idx, val);
       }
+      break;
+    }
+    case PM_DEFINED_NODE:
+    {
+      CAST(defined);
+      push();
+      codegen(s, cast->value, VAL);
+      pop();
+      pop();
+      genop_3(s, OP_SSEND, cursp(), new_sym(s, MRC_SYM_2(defined_p)), 1);
+      push();
       break;
     }
     default:
