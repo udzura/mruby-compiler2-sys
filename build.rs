@@ -32,7 +32,8 @@ fn main() {
         .compile("mrubycompiler2");
 
     println!("cargo:rustc-link-lib=mrubycompiler2");
-    let bindings = bindgen::Builder::default()
+    let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_default();
+    let mut builder = bindgen::Builder::default()
         .header("./vendor/mruby-compiler2/include/mruby_compiler.h")
         .header("./vendor/mruby-compiler2/include/mrc_codedump.h")
         .clang_arg("-I./vendor/mruby-compiler2/include")
@@ -42,9 +43,11 @@ fn main() {
         .blocklist_item("FP_ZERO")
         .blocklist_item("FP_SUBNORMAL")
         .blocklist_item("FP_NORMAL")
-        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
-        .generate()
-        .expect("Unable to generate bindings");
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()));
+    if target_arch == "wasm32" {
+        builder = builder.blocklist_type("max_align_t");
+    }
+    let bindings = builder.generate().expect("Unable to generate bindings");
 
     let out = std::path::PathBuf::from(out_dir).join("bindings.rs");
     bindings

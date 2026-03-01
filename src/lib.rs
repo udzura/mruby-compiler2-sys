@@ -5,6 +5,41 @@ mod bindings {
     #![allow(unused)]
     #![allow(unnecessary_transmutes)]
     include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+
+    #[cfg(target_arch = "wasm32")]
+    unsafe extern "C" {
+        pub fn mrc_ccontext_new(mrb: *mut ::std::os::raw::c_void) -> *mut mrc_ccontext;
+        pub fn mrc_ccontext_free(c: *mut mrc_ccontext);
+        pub fn mrc_load_string_cxt(
+            c: *mut mrc_ccontext,
+            source: *mut *const u8,
+            length: usize,
+        ) -> *mut mrc_irep;
+        pub fn mrc_dump_irep(
+            c: *mut mrc_ccontext,
+            irep: *const mrc_irep,
+            flags: u8,
+            bin: *mut *mut u8,
+            bin_size: *mut usize,
+        ) -> ::std::os::raw::c_int;
+        pub fn mrc_irep_free(c: *mut mrc_ccontext, irep: *mut mrc_irep);
+    }
+
+    #[cfg(all(target_arch = "wasm32", feature = "std"))]
+    unsafe extern "C" {
+        pub fn fdopen(
+            arg1: ::std::os::raw::c_int,
+            arg2: *const ::std::os::raw::c_char,
+        ) -> *mut FILE;
+        pub fn mrc_codedump_all(c: *mut mrc_ccontext, irep: *mut mrc_irep);
+        pub fn mrc_dump_irep_cfunc(
+            c: *mut mrc_ccontext,
+            irep: *const mrc_irep,
+            flags: u8,
+            fp: *mut FILE,
+            initname: *const ::std::os::raw::c_char,
+        ) -> ::std::os::raw::c_int;
+    }
 }
 use bindings::{
     MRC_DUMP_OK, mrc_ccontext, mrc_ccontext_free, mrc_ccontext_new, mrc_dump_irep, mrc_irep,
